@@ -17,9 +17,14 @@
 		/* Type Checking */
 		"strict": true,
 		/* Completeness */
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		/* Module Resolution */
+		"moduleResolution": "bundler"
 	},
 	"include": [
 		"src/**/*.ts"
+	],
+	"exclude": [
+		"node_modules"
 	]
 }

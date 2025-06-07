@@ -1,6 +1,6 @@
 // src/sample.ts
 export function sample() {
-	console.log("---sample from sample.ts---");
+	console.log('---sample from sample.ts---');
 }
 
 // 別の関数やクラスをexportすることも可能

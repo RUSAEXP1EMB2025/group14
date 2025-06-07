@@ -1,21 +1,19 @@
 // src/main.ts
-import { MyClass, sample } from "./sample"; // import で他のファイルから読み込む
+import { MyClass, sample } from './sample'; // import で他のファイルから読み込む
 
 // GASのエントリポイントとして公開したい関数
 // esbuild-gas-plugin がこれらのexportされた関数をグローバルスコープに露出させる
 export function onOpen(e: GoogleAppsScript.Events.SheetsOnOpen) {
 	const ui = SpreadsheetApp.getUi();
-	ui.createMenu("カスタムメニュー")
-		.addItem("サンプル実行", "runSample")
-		.addToUi();
-	console.log("メニューが追加されました (onOpen)");
+	ui.createMenu('カスタムメニュー').addItem('サンプル実行', 'runSample').addToUi();
+	console.log('メニューが追加されました (onOpen)');
 }
 
 export function runSample() {
-	console.log("runSample関数が実行されました");
+	console.log('runSample関数が実行されました');
 	sample(); // importした関数を呼び出す
 	const myInstance = new MyClass();
-	myInstance.greet("World");
+	myInstance.greet('World');
 }
 
 // Webアプリの doGet/doPost などもexportする
