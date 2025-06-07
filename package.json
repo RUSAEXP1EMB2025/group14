@@ -13,7 +13,8 @@
     "logout": "clasp logout",
     "build:watch": "bun esbuild.js --watch",
     "deploy:watch": "onchange \"dist/**/*.js\" -- bun run push",
-    "dev": "bun run build:watch & bun run deploy:watch"
+    "dev": "bun run build:watch & bun run deploy:watch",
+    "check": "bun x @biomejs/biome check --apply ./src"
   },
   "repository": {
     "type": "git",
