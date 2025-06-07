@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		/* Language and Environment */
+		"target": "ESNext",
+		"lib": [
+			"ESNext"
+		],
+		"experimentalDecorators": true,
+		/* Modules */
+		"module": "ESNext",
+		"rootDir": "./src",
+		/* Emit */
+		"noEmit": true,
+		/* Interop Constraints */
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		/* Type Checking */
+		"strict": true,
+		/* Completeness */
+		"skipLibCheck": true
+	},
+	"include": [
+		"src/**/*.ts"
+	]
+}
