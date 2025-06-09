@@ -1,39 +1,27 @@
 {
   "name": "group14",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "build": "bun esbuild.js",
-    "push": "clasp push",
-    "open": "clasp open-script",
-    "deploy": "bun run build && bun run push",
-    "clean": "rm -rf dist",
-    "login": "clasp login",
-    "logout": "clasp logout",
-    "build:watch": "bun esbuild.js --watch",
-    "deploy:watch": "onchange \"dist/**/*.js\" -- bun run push",
-    "dev": "bun run build:watch & bun run deploy:watch",
-    "check": "bun x @biomejs/biome check --apply ./src"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/RUSAEXP1EMB2025/group14.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "module": "src/app.ts",
   "type": "module",
-  "bugs": {
-    "url": "https://github.com/RUSAEXP1EMB2025/group14/issues"
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/app.ts",
+    "start": "bun src/app.ts",
+    "build": "bun build src/app.ts --outdir ./dist --target node",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --write src/",
+    "format": "biome format --write src/",
+    "check": "biome check --write src/"
   },
-  "homepage": "https://github.com/RUSAEXP1EMB2025/group14#readme",
   "devDependencies": {
-    "@google/clasp": "^3.0.6-alpha",
-    "@types/google-apps-script": "^1.0.97",
-    "esbuild": "^0.25.5",
-    "esbuild-gas-plugin": "^0.9.0",
-    "onchange": "^7.1.0",
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "@types/node": "^22.15.30"
+  },
+  "peerDependencies": {
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^10.0.0",
+    "dotenv": "^16.5.0"
   }
 }

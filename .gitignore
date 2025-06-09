@@ -1,27 +1,8 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-
-# Clasp configuration (contains script ID and potentially local paths)
-# WARNING: If you *must* share the scriptId in Git,
-# remove the line below and ensure .clasp.json contains *only* the scriptId and rootDir.
-# However, ignoring it is generally recommended.
-.clasp.json
-
-# Mac specific files
+.env
 .DS_Store
-
-# npm debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# VS Code specific files (optional, depends on team preference)
-.vscode/
-
-# Other temporary files
 *.log
-*.tmp
+.vscode/
+.idea/
+bun.lockb

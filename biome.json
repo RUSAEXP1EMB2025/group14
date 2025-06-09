@@ -11,13 +11,17 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noConsoleLog": "warn",
+        "noConsoleLog": "off",
         "noExplicitAny": "warn",
         "noArrayIndexKey": "warn"
       },
       "style": {
         "useConst": "warn",
-        "useImportType": "off"
+        "useImportType": "off",
+        "noNonNullAssertion": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "warn"
       }
     }
   },
@@ -26,10 +30,18 @@
       "enabled": true,
       "quoteStyle": "single",
       "trailingCommas": "none",
-      "arrowParentheses": "asNeeded"
+      "arrowParentheses": "asNeeded",
+      "semicolons": "always"
     }
   },
   "organizeImports": {
     "enabled": true
+  },
+  "files": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "*.log"
+    ]
   }
 }
