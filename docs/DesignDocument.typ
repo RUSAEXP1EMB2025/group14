@@ -49,18 +49,18 @@
 = システムの流れ
 
 #figure(
-  image("img/dataflow.png", width: 100%),
-  caption: [データフロー図],
-  supplement: "図",
-  kind: table,
-) <dataflow>
-
-#figure(
   image("img/sequence.png", width: 100%),
   caption: [シーケンス図],
   supplement: "図",
   kind: table,
 ) <sequence>
+
+#figure(
+  image("img/dataflow.png", width: 100%),
+  caption: [データフロー図],
+  supplement: "図",
+  kind: table,
+) <dataflow>
 
 = 必要なモジュール(.ts ファイル)
 
