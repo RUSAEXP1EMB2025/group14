@@ -1,9 +1,6 @@
 #set text(lang: "ja")
 #set text(font: "Noto Sans CJK JP")
-#set par(first-line-indent: (
-  all: true,
-  amount: 1em,
-))
+#set par(first-line-indent: (all: true, amount: 1em))
 #show figure.where(kind: table): set figure.caption(position: top)
 
 #align(center, text(20pt)[
@@ -21,45 +18,49 @@
 - エアコン稼働中のみセンサー監視を実行し、設定された値との比較を行う。
 
 == 自動制御ロジック
-- Google カレンダーに登録された睡眠イベントを検出したとき、以下のように Nature Remo、照明、LINE を操作する。なお、LINE に送信する際は、すでに設定されたメッセージテンプレートに各値を代入して文面を用意する。
+- Google カレンダーに登録された睡眠イベントを検出したとき、以下のように Nature
+  Remo、照明、LINE を操作する。なお、LINE
+  に送信する際は、すでに設定されたメッセージテンプレートに各値を代入して文面を用意する。
 
   === 睡眠時の制御
-  - 睡眠イベント開始時に、照明の明暗調整またはエアコンの設定変更をユーザーに LINE で問い合わせる。
-  - ユーザーが「はい」と応答した場合、Nature Remo を通じて照明を暗くしたり、エアコンを適切な温度に設定する。
+  - 睡眠イベント開始時に、照明の明暗調整またはエアコンの設定変更をユーザーに LINE
+    で問い合わせる。
+  - ユーザーが「はい」と応答した場合、Nature Remo
+    を通じて照明を暗くしたり、エアコンを適切な温度に設定する。
 
   === 起床時の制御
-  - カレンダーから抽出した起床時間になったら、Nature Remo を使って部屋の照明を自動的に点灯させる。
+  - カレンダーから抽出した起床時間になったら、Nature Remo
+    を使って部屋の照明を自動的に点灯させる。
   - 起床後、LINE でユーザーに起きたかどうかを確認し、起きた場合は照明を消す。
 
   === 温度監視・調整
-  - エアコン稼働中に 5 分ごとに温度をチェックし、設定した閾値を超えていれば自動的に温度を 1 度調整する。
+  - エアコン稼働中に 5
+    分ごとに温度をチェックし、設定した閾値を超えていれば自動的に温度を 1
+    度調整する。
 
   === LINE での問い合わせと応答
   - 照明やエアコンの制御を実行する前に、LINE でユーザーに確認メッセージを送信する。
-  - ユーザーの応答(実行/キャンセル)に基づいて、Nature Remo 経由でデバイス制御を実行する。
+  - ユーザーの応答(実行/キャンセル)に基づいて、Nature Remo
+    経由でデバイス制御を実行する。
 
 == 日の入り時刻連動機能
-- 天気 API から取得した日の入り時刻になったら、家の照明をつけるかどうか LINE でユーザーに問い合わせる。
+- 天気 API から取得した日の入り時刻になったら、家の照明をつけるかどうか LINE
+  でユーザーに問い合わせる。
 - ユーザーが「はい」と応答した場合、Nature Remo を通じて照明を点灯させる。
 
 == 手動操作機能
-- LINE を通じてユーザーが任意のタイミングで照明の ON/OFF/明暗調整やエアコンの ON/OFF/温度設定を指示できる。
+- LINE を通じてユーザーが任意のタイミングで照明の ON/OFF/明暗調整やエアコンの
+  ON/OFF/温度設定を指示できる。
 - 手動操作の指示を受け取ったら、即座に Nature Remo 経由でデバイス制御を実行する。
 
 = システムの流れ
 
 #figure(
-  image("img/sequence.png", width: 100%),
-  caption: [シーケンス図],
-  supplement: "図",
-  kind: table,
+  image("sequence.png", width: 100%), caption: [シーケンス図], supplement: "図", kind: table,
 ) <sequence>
 
 #figure(
-  image("img/dataflow.png", width: 100%),
-  caption: [データフロー図],
-  supplement: "図",
-  kind: table,
+  image("dataflow.png", width: 100%), caption: [データフロー図], supplement: "図", kind: table,
 ) <dataflow>
 
 = 必要なモジュール(.ts ファイル)

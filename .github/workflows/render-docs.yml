@@ -1,0 +1,31 @@
+name: Render documents
+on:
+  push:
+    paths:
+      - '**/*.typ'
+jobs:
+  render_documents:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: typst-community/setup-typst@v4
+      - name: Install Noto Serif JP font
+        run: |
+          mkdir -p ~/.fonts
+          cp docs/fonts/*.ttf ~/.fonts/
+          fc-cache -fv
+      - name: Compile all documents
+        run: |
+          typst compile docs/typst/RequirementsSpecification.typ docs/要求仕様書.pdf
+          typst compile docs/typst/DesignDocument.typ docs/設計書.pdf
+      - name: Configure Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+      - name: Commit and push PDF files
+        run: |
+          git add docs/*.pdf
+          git commit -m "Compiled PDF documentation" || echo "No changes to commit"
+          git push
