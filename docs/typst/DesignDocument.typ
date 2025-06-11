@@ -1,5 +1,4 @@
-#set text(lang: "ja")
-#set text(font: "Noto Sans CJK JP")
+#set text(font: "Noto Serif JP", lang: "ja")
 #set par(first-line-indent: (all: true, amount: 1em))
 #show figure.where(kind: table): set figure.caption(position: top)
 
