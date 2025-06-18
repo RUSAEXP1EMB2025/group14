@@ -21,10 +21,6 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
-    /* Development Experience */
-    // "noUnusedLocals": false, // 開発中は緩く
-    // "noUnusedParameters": false, // 開発中は緩く
-    // "noPropertyAccessFromIndexSignature": false,
     /* Interop & Compatibility */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -39,7 +35,6 @@
     "src/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "dist"
+    "node_modules"
   ]
 }
