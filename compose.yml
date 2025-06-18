@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"  # アプリケーションのポート
+      - "4040:4040"  # NgrokのWeb UIポート
+    environment:
+      - NODE_ENV=development
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - NATURE_REMO_ACCESS_TOKEN=${NATURE_REMO_ACCESS_TOKEN}
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - PORT=3000
+    volumes:
+      # ソースコードの変更をリアルタイムで反映（開発用）
+      - .:/app
+      - /app/node_modules
+      # Ngrokの設定を永続化
+      - ngrok_config:/root/.config/ngrok
+    stdin_open: true
+    tty: true
+    cap_add:
+      - SYS_PTRACE
+
+volumes:
+  ngrok_config:

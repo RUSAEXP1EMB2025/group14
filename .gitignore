@@ -5,4 +5,103 @@ dist/
 *.log
 .vscode/
 .idea/
+
+# Bun関連（bun.lockbは通常コミットしますが、個人設定で除外されている場合はそのまま）
 bun.lockb
+
+# Docker関連
+.docker/
+docker-compose.override.yml
+.dockerignore
+
+# Ngrok関連
+.ngrok2/
+ngrok.yml
+authtoken
+
+# 環境設定ファイル
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# OS関連
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# エディタ関連
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ログファイル
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# ランタイムデータ
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Temporary folders
+tmp/
+temp/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Biome関連（linter/formatter）
+.biome-cache/
+
+# Nature Remo関連（もしローカルキャッシュファイルがあれば）
+.remo-cache/
+
+# LINE Bot関連のローカルファイル
+.line-cache/
+webhook-test.json
+
+# Docker volume データ
+docker-data/
