@@ -1,5 +1,4 @@
 version: "2"
-authtoken: ${NGROK_AUTHTOKEN}
 tunnels:
   web:
     addr: app:3000

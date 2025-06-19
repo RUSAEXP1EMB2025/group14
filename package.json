@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run scripts/setup-dev.ts",
+    "dev": "bun run src/app.ts",
     "dev:server": "bun --hot src/app.ts",
     "dev:ngrok": "ngrok http 3000",
     "start": "bun src/app.ts",

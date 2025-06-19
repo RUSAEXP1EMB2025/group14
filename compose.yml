@@ -5,12 +5,6 @@ services:
     build: .
     ports:
       - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
-      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
-      - NATURE_REMO_ACCESS_TOKEN=${NATURE_REMO_ACCESS_TOKEN}
-      - PORT=3000
     volumes:
       - .:/app
       - /app/node_modules
@@ -31,8 +25,6 @@ services:
       - ./ngrok.yml:/etc/ngrok.yml
     ports:
       - "4040:4040"
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     depends_on:
       - app
     networks:
