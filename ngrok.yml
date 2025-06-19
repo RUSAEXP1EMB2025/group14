@@ -1,0 +1,9 @@
+version: "2"
+tunnels:
+  web:
+    addr: app:3000
+    proto: http
+web_addr: 0.0.0.0:4040
+log_level: info
+log_format: logfmt
+log: stdout

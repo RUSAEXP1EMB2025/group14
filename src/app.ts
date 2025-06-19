@@ -5,7 +5,7 @@ import { getNgrokUrl, autoUpdateWebhookForDev } from './utils/ngrok.ts';
 import { LineService } from './services/LineService.ts';
 import { NatureRemoService } from './services/NatureRemoService.ts';
 import { ScheduleManager } from './services/ScheduleManager.ts';
-import { MessageHandler } from './handlers/MessageHandler.ts';
+import { MessageHandler } from './handlers/messageHandler.ts';
 import 'dotenv/config';
 
 // 型ガード関数

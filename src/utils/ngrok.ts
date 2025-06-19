@@ -39,7 +39,7 @@ export async function updateWebhookUrl(ngrokUrl: string): Promise<boolean> {
 
 export async function getNgrokUrl(): Promise<string | null> {
   try {
-    const response = await fetch('http://localhost:4040/api/tunnels');
+    const response = await fetch('http://ngrok:4040/api/tunnels');
 
     if (!response.ok) {
       return null;
