@@ -4,25 +4,42 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"  # アプリケーションのポート
-      - "4040:4040"  # NgrokのWeb UIポート
+      - "3000:3000"
     environment:
       - NODE_ENV=development
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
       - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
       - NATURE_REMO_ACCESS_TOKEN=${NATURE_REMO_ACCESS_TOKEN}
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
       - PORT=3000
     volumes:
-      # ソースコードの変更をリアルタイムで反映（開発用）
       - .:/app
       - /app/node_modules
-      # Ngrokの設定を永続化
-      - ngrok_config:/root/.config/ngrok
-    stdin_open: true
-    tty: true
-    cap_add:
-      - SYS_PTRACE
+    networks:
+      - app-network
+    env_file:
+      - .env
 
-volumes:
-  ngrok_config:
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    ports:
+      - "4040:4040"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    depends_on:
+      - app
+    networks:
+      - app-network
+    env_file:
+      - .env
+
+networks:
+  app-network:
+    driver: bridge

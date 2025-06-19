@@ -6,17 +6,12 @@ dist/
 .vscode/
 .idea/
 
-# Bun関連（bun.lockbは通常コミットしますが、個人設定で除外されている場合はそのまま）
-bun.lockb
-
 # Docker関連
 .docker/
 docker-compose.override.yml
-.dockerignore
 
 # Ngrok関連
 .ngrok2/
-ngrok.yml
 authtoken
 
 # 環境設定ファイル
