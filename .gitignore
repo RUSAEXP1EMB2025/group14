@@ -1,6 +1,5 @@
 node_modules/
 dist/
-.env
 .DS_Store
 *.log
 .vscode/
@@ -15,6 +14,7 @@ docker-compose.override.yml
 authtoken
 
 # 環境設定ファイル
+.env
 .env.local
 .env.development
 .env.test
@@ -100,3 +100,7 @@ webhook-test.json
 
 # Docker volume データ
 docker-data/
+
+# Task runner cache
+.task/
+
