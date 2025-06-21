@@ -1,0 +1,171 @@
+version: '3'
+
+vars:
+  PROJECT_NAME: group14
+  SRC_DIR: src
+  DIST_DIR: dist
+  SCRIPTS_DIR: scripts
+
+env:
+  NODE_ENV: development
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # 基本タスク
+  setup:
+    desc: 開発環境のセットアップ（依存関係のインストール、.envファイルの作成）
+    cmds:
+      - task: env:copy
+      - task: install
+      - echo "✅ 開発環境のセットアップが完了しました"
+
+  install:
+    desc: 依存関係をインストール（Docker経由）
+    cmds:
+      - docker build -t {{.PROJECT_NAME}} .
+      - docker run --rm -v $(pwd):/app {{.PROJECT_NAME}} bun install
+      - echo "✅ 依存関係をインストールしました"
+
+  clean:
+    desc: 生成されたファイルのクリーンアップ
+    cmds:
+      - rm -rf {{.DIST_DIR}}
+      - rm -rf node_modules
+      - docker rmi {{.PROJECT_NAME}} 2>/dev/null || true
+      - echo "✅ クリーンアップが完了しました"
+
+  # 開発用タスク
+  dev:
+    desc: 開発サーバーの起動（Docker + ngrok）
+    cmds:
+      - docker compose up --build -d
+      - echo "✅ 開発環境を起動しました"
+
+  stop:
+    desc: Docker Composeでサービス停止
+    cmds:
+      - docker compose down
+      - echo "✅ Dockerサービスを停止しました"
+
+  logs:
+    desc: Docker Composeのログ表示
+    cmds:
+      - docker compose logs -f
+
+  restart:
+    desc: Docker Composeサービスの再起動
+    cmds:
+      - task: stop
+      - task: dev
+
+  shell:
+    desc: アプリコンテナ内でシェルを起動
+    cmds:
+      - docker compose exec app sh
+
+  # コード品質管理
+  lint:
+    desc: Biomeによるコードの静的解析
+    deps: [install]
+    cmds:
+      - docker run --rm -v $(pwd):/app {{.PROJECT_NAME}} bun biome lint {{.SRC_DIR}}/
+
+  lint:fix:
+    desc: リントエラーの自動修正
+    deps: [install]
+    cmds:
+      - docker run --rm -v $(pwd):/app {{.PROJECT_NAME}} bun biome lint --write {{.SRC_DIR}}/
+      - echo "✅ リントエラーを修正しました"
+
+  format:
+    desc: コードフォーマット
+    deps: [install]
+    cmds:
+      - docker run --rm -v $(pwd):/app {{.PROJECT_NAME}} bun biome format --write {{.SRC_DIR}}/
+      - echo "✅ コードフォーマットが完了しました"
+
+  check:
+    desc: 総合的なコードチェック（リント + フォーマット）
+    deps: [install]
+    cmds:
+      - docker run --rm -v $(pwd):/app {{.PROJECT_NAME}} bun biome check --write {{.SRC_DIR}}/
+      - echo "✅ コードチェックが完了しました"
+
+  # スクリプト実行
+  script:run:
+    desc: 任意のスクリプト実行（例 task script:run -- scripts/your-script.ts）
+    deps: [install]
+    cmds:
+      - docker run --rm --env-file .env -v $(pwd):/app {{.PROJECT_NAME}} bun run {{.CLI_ARGS}}
+
+  # 環境構築
+  env:copy:
+    desc: .env.exampleから.envファイルをコピー
+    cmds:
+      - |
+        if [ ! -f .env ]; then
+          cp .env.example .env
+          echo "✅ .envファイルを作成しました"
+        else
+          echo "⚠️  .envファイルは既に存在します"
+        fi
+    status:
+      - test -f .env
+
+  env:check:
+    desc: 必要な環境変数の確認
+    cmds:
+      - |
+        if [ -f .env ]; then
+          echo "✅ .envファイルが存在します"
+          echo "📋 設定されている環境変数"
+          grep -v '^#' .env | grep -v '^$' || echo "環境変数が設定されていません"
+        else
+          echo "❌ .envファイルが見つかりません。'task env:copy'を実行してください。"
+          exit 1
+        fi
+
+  # 開発支援タスク
+  dev:full:
+    desc: 完全な開発環境セットアップ + 起動（ngrok付き）
+    cmds:
+      - task: setup
+      - task: dev
+
+  dev:quick:
+    desc: クイック開発環境起動（ngrokなし）
+    cmds:
+      - task: setup
+      - task: dev:app
+
+  # ヘルスチェック・監視
+  health:
+    desc: アプリケーションのヘルスチェック
+    cmds:
+      - curl -f http://localhost:3000/health || echo "❌ アプリケーションが起動していません"
+
+  # デバッグ・情報取得
+  info:
+    desc: 開発環境の情報表示
+    cmds:
+      - echo "📊 Docker環境情報"
+      - docker compose ps
+      - echo "🌐 ローカルURL http://localhost:3000"
+      - echo "📊 Ngrok dashboard http://localhost:4040"
+      - echo "🔍 ヘルスチェック task health"
+
+  debug:
+    desc: デバッグ情報の表示
+    cmds:
+      - echo "🔍 Docker情報"
+      - docker version
+      - echo "🔍 Docker Compose情報"
+      - docker compose version
+      - echo "🔍 実行中のコンテナ"
+      - docker ps
+      - echo "🔍 環境変数チェック"
+      - task: env:check
