@@ -5,6 +5,11 @@ dist/
 .vscode/
 .idea/
 
+# googleAPI関連
+credentials.json
+token.json
+
+
 # Docker関連
 .docker/
 docker-compose.override.yml
