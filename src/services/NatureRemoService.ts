@@ -1,12 +1,14 @@
+import { DefaultApi, createConfiguration } from '../api/generated/index.ts';
 import type {
-  SensorData,
+  ApplianceResponse,
+  DeviceResponse,
+  DeviceResponseNewestEventsValue
+} from '../api/generated/index.ts';
+import type {
   DeviceControlRequest,
-  NatureRemoDevice,
-  NatureRemoAppliance
+  SensorData
 } from '../types/index.ts';
 import { logger } from '../utils/logger.ts';
-import { createConfiguration, DefaultApi } from '../api/generated/index.ts';
-import type { DeviceResponse, ApplianceResponse } from '../api/generated/index.ts';
 
 export class NatureRemoService {
   private apiClient: DefaultApi;
@@ -38,8 +40,8 @@ export class NatureRemoService {
   }
 
   async listDevicesAndAppliances(): Promise<{
-    devices: NatureRemoDevice[];
-    appliances: NatureRemoAppliance[];
+    devices: DeviceResponse[];      // 生成された型を直接使用
+    appliances: ApplianceResponse[]; // 生成された型を直接使用
   }> {
     try {
       const [devicesResponse, appliancesResponse] = await Promise.all([
@@ -47,12 +49,9 @@ export class NatureRemoService {
         this.apiClient._1appliancesGet()
       ]);
 
-      const devices = devicesResponse as DeviceResponse[];
-      const appliances = appliancesResponse as ApplianceResponse[];
-
       return {
-        devices: devices as NatureRemoDevice[],
-        appliances: appliances as NatureRemoAppliance[]
+        devices: devicesResponse as DeviceResponse[],
+        appliances: appliancesResponse as ApplianceResponse[]
       };
     } catch (error) {
       logger.error('デバイス・家電一覧取得エラー:', error);
@@ -91,7 +90,7 @@ export class NatureRemoService {
   private async findApplianceByType(type: 'LIGHT' | 'AC'): Promise<string> {
     try {
       const { appliances } = await this.listDevicesAndAppliances();
-      const appliance = appliances.find((app: NatureRemoAppliance) => app.type === type);
+      const appliance = appliances.find((app: ApplianceResponse) => app.type === type);
 
       if (!appliance) {
         throw new Error(
@@ -99,7 +98,7 @@ export class NatureRemoService {
         );
       }
 
-      return appliance.id;
+      return appliance.id || '';
     } catch (error) {
       logger.error(`家電検索エラー (${type}):`, error);
       throw error;
@@ -210,10 +209,10 @@ export class NatureRemoService {
     }
   }
 
-  async getApplianceDetails(applianceId: string): Promise<NatureRemoAppliance> {
+  async getApplianceDetails(applianceId: string): Promise<ApplianceResponse> {
     try {
       const { appliances } = await this.listDevicesAndAppliances();
-      const appliance = appliances.find((app: NatureRemoAppliance) => app.id === applianceId);
+      const appliance = appliances.find((app: ApplianceResponse) => app.id === applianceId);
 
       if (!appliance) {
         throw new Error(`Appliance with ID ${applianceId} not found`);

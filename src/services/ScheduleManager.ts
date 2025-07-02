@@ -18,13 +18,16 @@ export class ScheduleManager {
     logger.info('📅 定期実行タスクを開始します');
 
     // 例: 1時間ごとにセンサーデータをチェック
-    const sensorCheckInterval = setInterval(async () => {
-      try {
-        await this.checkSensorData();
-      } catch (error) {
-        logger.error('センサーデータチェックエラー:', error);
-      }
-    }, 60 * 60 * 1000); // 1時間
+    const sensorCheckInterval = setInterval(
+      async () => {
+        try {
+          await this.checkSensorData();
+        } catch (error) {
+          logger.error('センサーデータチェックエラー:', error);
+        }
+      },
+      60 * 60 * 1000
+    ); // 1時間
 
     this.intervals.add(sensorCheckInterval);
   }
@@ -36,7 +39,7 @@ export class ScheduleManager {
 
       // 異常値の検知などのロジックをここに追加
       if (sensorData.temperature > 30) {
-        logger.warn('🌡️ 高温警告:', sensorData.temperature);
+        logger.warn('🌡 高温警告:', sensorData.temperature);
       }
     } catch (error) {
       logger.error('定期センサーデータ取得エラー:', error);

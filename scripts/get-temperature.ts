@@ -1,11 +1,11 @@
 // scripts/get-temperature.ts
 import { createConfiguration, DefaultApi } from '../src/api/generated/index.ts';
-import type { DeviceResponse, DeviceResponseNewestEventsValue } from '../src/api/generated/index.ts';
+import type { DeviceResponse } from '../src/api/generated/index.ts';
 
 async function getCurrentTemperature(): Promise<void> {
   try {
     const accessToken = process.env.NATURE_REMO_ACCESS_TOKEN;
-    
+
     if (!accessToken) {
       throw new Error('NATURE_REMO_TOKEN環境変数が設定されていません');
     }
@@ -24,7 +24,7 @@ async function getCurrentTemperature(): Promise<void> {
     const api = new DefaultApi(configuration);
 
     console.log('🔍 デバイス情報を取得中...');
-    const devices = await api._1devicesGet() as DeviceResponse[];
+    const devices = (await api._1devicesGet()) as DeviceResponse[];
 
     if (!devices || devices.length === 0) {
       throw new Error('デバイスが見つかりませんでした');
@@ -40,10 +40,10 @@ async function getCurrentTemperature(): Promise<void> {
     }
 
     console.log('\n📊 現在のセンサーデータ:');
-    
+
     // 温度 (te)
     if (events.te) {
-      console.log(`🌡️  温度: ${events.te.val}°C`);
+      console.log(`🌡  温度: ${events.te.val}°C`);
       if (events.te.createdAt) {
         console.log(`   更新時刻: ${new Date(events.te.createdAt).toLocaleString('ja-JP')}`);
       }
@@ -80,7 +80,6 @@ async function getCurrentTemperature(): Promise<void> {
     } else {
       throw new Error('温度データが取得できませんでした');
     }
-
   } catch (error) {
     console.error('❌ エラーが発生しました:', error);
     process.exit(1);

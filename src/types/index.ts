@@ -4,7 +4,7 @@ export interface LineConfig {
   channelSecret: string;
 }
 
-// Nature Remo関連の型定義
+// アプリケーション固有のビジネスロジック型（APIには存在しない）
 export interface SensorData {
   temperature: number;
   humidity: number;
@@ -21,26 +21,6 @@ export interface DeviceControlRequest {
   };
 }
 
-export interface NatureRemoDevice {
-  id: string;
-  name: string;
-  nickname: string;
-  newest_events?: {
-    te?: { val: number; created_at: string };
-    hu?: { val: number; created_at: string };
-    il?: { val: number; created_at: string };
-  };
-}
-
-export interface NatureRemoAppliance {
-  id: string;
-  nickname: string;
-  type: 'LIGHT' | 'AC' | string;
-  model?: {
-    id: string;
-    manufacturer: string;
-    remote_name: string;
-    name: string;
-    image: string;
-  };
-}
+// 型エイリアス（必要に応じて）
+export type { ApplianceResponse as NatureRemoAppliance } from '../api/generated/index.ts';
+export type { DeviceResponse as NatureRemoDevice } from '../api/generated/index.ts';

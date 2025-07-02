@@ -1,8 +1,7 @@
 import type { MessageEvent, TextMessage } from '@line/bot-sdk';
-import type { DeviceControlRequest } from '../types/index.ts';
-import { logger } from '../utils/logger.ts';
 import { LineService } from '../services/LineService.ts';
 import { NatureRemoService } from '../services/NatureRemoService.ts';
+import { logger } from '../utils/logger.ts';
 
 export class MessageHandler {
   private lineService: LineService;
@@ -75,7 +74,7 @@ export class MessageHandler {
         if (devices.length > 0) {
           message += '🔌 デバイス：\n';
           devices.forEach((device, index) => {
-            message += `${index + 1}. ${device.name || device.nickname || 'Unknown'} (${device.id})\n`;
+            message += `${index + 1}. ${device.name || 'Unknown'} (${device.id})\n`;
           });
           message += '\n';
         }
@@ -144,7 +143,7 @@ export class MessageHandler {
           break;
         case 'wakeup-confirm':
           await this.remoService.controlLight('off');
-          await this.lineService.replyMessage(replyToken, 'おはようございます！照明を消しました☀️');
+          await this.lineService.replyMessage(replyToken, 'おはようございます！照明を消しました☀');
           break;
         default:
           await this.lineService.replyMessage(replyToken, '不明な操作です');
@@ -175,7 +174,7 @@ export class MessageHandler {
     if (lowerText.includes('エアコン') || lowerText.includes('冷房')) {
       if (lowerText.includes('つけ') || lowerText.includes('オン')) {
         await this.remoService.controlAircon('on', 24);
-        await this.lineService.replyMessage(replyToken, 'エアコンをつけました❄️');
+        await this.lineService.replyMessage(replyToken, 'エアコンをつけました❄');
         return true;
       }
       if (lowerText.includes('消し') || lowerText.includes('オフ')) {
