@@ -1,217 +1,254 @@
-import type { WebhookEvent } from '@line/bot-sdk';
-import { MessageHandler } from './handlers/messageHandler.ts';
-import { LineService } from './services/LineService.ts';
-import { NatureRemoService } from './services/NatureRemoService.ts';
-import { ScheduleManager } from './services/ScheduleManager.ts';
-import { getEnvVar, getEnvVarWithDefault } from './utils/env.ts';
-import { logger } from './utils/logger.ts';
-import { autoUpdateWebhookForDev, getNgrokUrl } from './utils/ngrok.ts';
 import 'dotenv/config';
-
-// 型ガード関数
-function isLineWebhookBody(obj: unknown): obj is { events: WebhookEvent[] } {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'events' in obj &&
-    Array.isArray((obj as { events: unknown }).events)
-  );
-}
-
-class BotApplication {
-  private lineService: LineService;
-  private remoService: NatureRemoService;
-  private scheduleManager: ScheduleManager;
-  private messageHandler: MessageHandler;
-  public port: number;
+import {
+  DeviceAutomationService,
+  LineWebhookService,
+  DailyScheduleSetupService
+} from './application/services/index.ts';
+import {
+  ControlDeviceUseCase,
+  ManageScheduleUseCase,
+  ProcessMessageUseCase
+} from './application/usecases/index.ts';
+import { DeviceControlService, MessageService, ScheduleService } from './domain/services/index.ts';
+import {
+  MockMessageRepository,
+  MockScheduleRepository,
+  NatureRemoDeviceRepository,
+  LineApiClient,
+  LineApiClientAdapter
+} from './external/index.ts';
+import { ConfigManager } from './infrastructure/env/ConfigManager.ts';
+import { LoggerFactory } from './infrastructure/logger/LoggerFactory.ts';
+import { SimpleNextExecutionCalculator } from './infrastructure/scheduler/SimpleNextExecutionCalculator.ts';
+import { ScheduleExecutionEngine } from './infrastructure/scheduler/ScheduleExecutionEngine.ts';
+import { LineNotificationTaskExecutor } from './infrastructure/scheduler/executors/LineNotificationTaskExecutor.ts';
+import { DebugController } from './presentation/controllers/DebugController.ts';
+import { DeviceControlController } from './presentation/controllers/DeviceControlController.ts';
+import { LineWebhookController } from './presentation/controllers/LineWebhookController.ts';
+import { AppRouter } from './presentation/routers/AppRouter.ts';
+import { autoUpdateWebhookForDev } from './utils/ngrok.ts';
+class Application {
+  private readonly logger = LoggerFactory.create('Application');
+  private readonly configManager: ConfigManager;
+  private router!: AppRouter;
+  private scheduleExecutionEngine!: ScheduleExecutionEngine;
+  private dailyScheduleSetupService!: DailyScheduleSetupService;
 
   constructor() {
-    this.port = Number.parseInt(getEnvVarWithDefault('PORT', '3000'));
-    const config = {
-      channelAccessToken: getEnvVar('LINE_CHANNEL_ACCESS_TOKEN'),
-      channelSecret: getEnvVar('LINE_CHANNEL_SECRET'),
-      remoAccessToken: getEnvVar('NATURE_REMO_ACCESS_TOKEN')
-    };
-
-    // サービスの初期化
-    this.lineService = new LineService(config.channelAccessToken);
-    this.remoService = new NatureRemoService(config.remoAccessToken);
-    this.scheduleManager = new ScheduleManager(this.lineService, this.remoService);
-    this.messageHandler = new MessageHandler(this.lineService, this.remoService);
+    this.configManager = ConfigManager.getInstance();
   }
 
   async initialize(): Promise<void> {
-    logger.info(`🚀 LINE Bot サーバーを起動中... ポート: ${this.port}`);
-
-    // 開発環境でのngrok自動設定
-    if (process.env.NODE_ENV === 'development') {
-      setTimeout(async () => {
-        await autoUpdateWebhookForDev();
-      }, 2000);
+    const configResult = this.configManager.initialize();
+    if (configResult.isFailure()) {
+      throw configResult.getError();
     }
 
-    // プロセス終了時のクリーンアップ
-    process.on('SIGINT', () => this.cleanup());
-    process.on('SIGTERM', () => this.cleanup());
+    this.logger.info(`🚀 LINE Bot サーバーを起動中... ポート: ${this.configManager.get('port')}`);
 
-    logger.info(`✅ アプリケーション初期化完了 - ポート: ${this.port} で待機中`);
+    await this.buildDependencies();
+
+    await this.setupDevelopmentEnvironment();
+
+    this.setupProcessHandlers();
+
+    this.startScheduleEngine();
+
+    this.startDailyScheduleSetupService();
+
+    this.logger.info(
+      `✅ アプリケーション初期化完了 - ポート: ${this.configManager.get('port')} で待機中`
+    );
   }
 
-  private cleanup(): void {
-    logger.info('🧹 アプリケーションクリーンアップ中...');
-    this.scheduleManager.cleanup();
-    process.exit(0);
+  private async buildDependencies(): Promise<void> {
+    try {
+      this.logger.debug('🔧 依存関係構築開始');
+
+      const config = this.configManager.getConfig();
+      const logger = LoggerFactory.create('Bot');
+
+      // Domain層（Repositories）
+      const messageRepository = new MockMessageRepository(logger);
+      const scheduleRepository = new MockScheduleRepository(logger);
+      const deviceRepository = new NatureRemoDeviceRepository(
+        config.natureRemo.accessToken,
+        logger
+      );
+
+      // External Service
+      const lineApiClient = new LineApiClient(config.line.channelAccessToken, logger);
+
+      // Domain Services
+      const messageService = new MessageService(messageRepository, logger);
+
+      const deviceControlService = new DeviceControlService(deviceRepository, logger);
+
+      const scheduleService = new ScheduleService(
+        scheduleRepository,
+        new SimpleNextExecutionCalculator(),
+        logger
+      );
+
+      // Use Cases
+      const processMessageUseCase = new ProcessMessageUseCase(
+        messageService,
+        deviceControlService,
+        logger
+      );
+
+      const controlDeviceUseCase = new ControlDeviceUseCase(deviceControlService, logger);
+
+      const manageScheduleUseCase = new ManageScheduleUseCase(scheduleService, logger);
+
+      // Application Services
+      const webhookService = new LineWebhookService(processMessageUseCase, lineApiClient, logger);
+
+      const automationService = new DeviceAutomationService(
+        controlDeviceUseCase,
+        manageScheduleUseCase, // 実際のManageScheduleUseCaseを使用
+        logger
+      );
+
+      // スケジュール実行エンジンとタスクエグゼキューター
+      this.scheduleExecutionEngine = new ScheduleExecutionEngine(scheduleService, logger);
+
+      // LineNotificationTaskExecutorを登録（アダプターを使用）
+      const lineApiClientAdapter = new LineApiClientAdapter(lineApiClient, logger);
+      const lineNotificationExecutor = new LineNotificationTaskExecutor(
+        logger,
+        lineApiClientAdapter
+      );
+      this.scheduleExecutionEngine.registerTaskExecutor(
+        'line_notification',
+        lineNotificationExecutor
+      );
+
+      // Presentation層（Controllers）
+      const webhookController = new LineWebhookController(
+        webhookService,
+        logger,
+        config.line.channelSecret
+      );
+
+      const deviceController = new DeviceControlController(
+        controlDeviceUseCase,
+        automationService,
+        logger
+      );
+
+      // Debug Controller
+      const debugController = new DebugController(
+        deviceRepository,
+        automationService,
+        manageScheduleUseCase,
+        logger
+      );
+
+      // Router設定
+      this.router = new AppRouter(webhookController, deviceController, debugController, logger);
+
+      // デイリースケジュールセットアップサービス（LineNotificationTaskExecutorを渡す）
+      this.dailyScheduleSetupService = new DailyScheduleSetupService(
+        manageScheduleUseCase,
+        lineNotificationExecutor
+      );
+
+      this.logger.debug('✅ 依存関係構築完了');
+    } catch (error) {
+      this.logger.error('❌ 依存関係構築失敗:', error);
+      throw error;
+    }
+  }
+
+  private startScheduleEngine(): void {
+    try {
+      this.scheduleExecutionEngine.start();
+      this.logger.info('✅ Schedule execution engine started');
+    } catch (error) {
+      this.logger.error('❌ Failed to start schedule execution engine:', error);
+    }
+  }
+
+  private startDailyScheduleSetupService(): void {
+    try {
+      this.dailyScheduleSetupService.start();
+      this.logger.info('✅ Daily schedule setup service started');
+    } catch (error) {
+      this.logger.error('❌ Failed to start daily schedule setup service:', error);
+    }
+  }
+
+  private async setupDevelopmentEnvironment(): Promise<void> {
+    const config = this.configManager.getConfig();
+
+    if (config.nodeEnv === 'development') {
+      this.logger.info('🛠️ 開発環境設定中...');
+
+      setTimeout(async () => {
+        try {
+          await autoUpdateWebhookForDev();
+          this.logger.info('✅ Ngrok Webhook設定完了');
+        } catch (error) {
+          this.logger.warn('⚠️ Ngrok Webhook設定失敗:', error);
+        }
+      }, 2000);
+    }
+  }
+
+  private setupProcessHandlers(): void {
+    const cleanup = (): void => {
+      this.logger.info('🧹 アプリケーションクリーンアップ中...');
+
+      if (this.scheduleExecutionEngine) {
+        this.scheduleExecutionEngine.stop();
+      }
+
+      if (this.dailyScheduleSetupService) {
+        this.dailyScheduleSetupService.stop();
+      }
+
+      process.exit(0);
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
   }
 
   async handleRequest(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const method = request.method;
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-
-    logger.info(`📝 ${method} ${url.pathname} - UA: ${userAgent}`);
-
-    // ヘルスチェック
-    if (url.pathname === '/health' && method === 'GET') {
-      return await this.handleHealthCheck();
-    }
-
-    // 開発用エンドポイント
-    if (process.env.NODE_ENV === 'development') {
-      if (url.pathname === '/dev/ngrok-info' && method === 'GET') {
-        return await this.handleDevInfo();
-      }
-
-      if (url.pathname === '/dev/update-webhook' && method === 'POST') {
-        return await this.handleWebhookUpdate();
-      }
-    }
-
-    // Webhook処理
-    if (url.pathname === '/webhook' && method === 'POST') {
-      return await this.handleWebhook(request);
-    }
-
-    logger.info('❓ 未対応パス:', url.pathname);
-    return new Response('Not Found', { status: 404 });
-  }
-
-  private async handleHealthCheck(): Promise<Response> {
-    const ngrokUrl = process.env.NODE_ENV === 'development' ? await getNgrokUrl() : null;
-
-    const healthResponse = {
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      server: 'Bun',
-      port: this.port,
-      environment: process.env.NODE_ENV || 'development',
-      ...(ngrokUrl && {
-        ngrokUrl,
-        webhookUrl: `${ngrokUrl}/webhook`,
-        ngrokDashboard: 'http://localhost:4040'
-      })
-    };
-
-    logger.info('✅ ヘルスチェック応答:', healthResponse);
-    return Response.json(healthResponse);
-  }
-
-  private async handleDevInfo(): Promise<Response> {
-    const ngrokUrl = await getNgrokUrl();
-    const devInfo = {
-      ngrokUrl,
-      webhookUrl: ngrokUrl ? `${ngrokUrl}/webhook` : null,
-      ngrokDashboard: 'http://localhost:4040',
-      localUrl: `http://localhost:${this.port}`,
-      canUpdateWebhook: !!process.env.LINE_CHANNEL_ACCESS_TOKEN
-    };
-
-    logger.info('🔍 開発情報取得:', devInfo);
-    return Response.json(devInfo);
-  }
-
-  private async handleWebhookUpdate(): Promise<Response> {
     try {
-      const ngrokUrl = await getNgrokUrl();
-      if (!ngrokUrl) {
-        return Response.json({ error: 'Ngrok URL not available' }, { status: 400 });
-      }
-      const { updateWebhookUrl } = await import('./utils/ngrok.ts');
-      const result = await updateWebhookUrl(ngrokUrl);
-      return Response.json(result);
+      return await this.router.route(request);
     } catch (error) {
-      logger.error('Webhook更新エラー:', error);
-      return Response.json({ error: 'Failed to update webhook' }, { status: 500 });
-    }
-  }
-
-  private async handleWebhook(request: Request): Promise<Response> {
-    try {
-      logger.info('📨 Webhook受信開始');
-
-      const rawBody = await request.json();
-
-      if (!isLineWebhookBody(rawBody)) {
-        logger.error('❌ 無効なWebhookボディ:', rawBody);
-        return new Response('Bad Request: Invalid webhook body', { status: 400 });
-      }
-
-      const events: WebhookEvent[] = rawBody.events;
-      logger.info(`📊 受信イベント数: ${events.length}`);
-
-      if (events.length > 0) {
-        const promises = events.map(event => this.handleEvent(event));
-        await Promise.all(promises);
-      }
-
-      logger.info('✅ Webhook処理完了');
-      return new Response('OK');
-    } catch (error) {
-      logger.error('❌ Webhook処理エラー:', error);
-
-      if (error instanceof SyntaxError) {
-        logger.error('JSON解析エラー: 無効なJSON形式');
-        return new Response('Bad Request: Invalid JSON', { status: 400 });
-      }
-
+      this.logger.error('❌ リクエスト処理エラー:', error);
       return new Response('Internal Server Error', { status: 500 });
     }
   }
 
-  private async handleEvent(event: WebhookEvent): Promise<void> {
-    logger.info(`🎯 イベントタイプ: ${event.type}`);
-
-    try {
-      switch (event.type) {
-        case 'message':
-          await this.messageHandler.handleMessage(event);
-          return;
-        case 'follow':
-          logger.info('👋 新しいユーザーがフォローしました');
-          return;
-        case 'unfollow':
-          logger.info('👋 ユーザーがアンフォローしました');
-          return;
-        default:
-          logger.info(`🤔 未対応のイベントタイプ: ${event.type}`);
-          return;
-      }
-    } catch (error) {
-      logger.error(`💥 イベント処理エラー (${event.type}):`, error);
-    }
+  getPort(): number {
+    return this.configManager.get('port');
   }
 }
 
-// アプリケーションインスタンスの作成と初期化
-const app = new BotApplication();
-await app.initialize();
+async function startApplication(): Promise<void> {
+  const app = new Application();
 
-// Bunサーバーの起動
-const server = Bun.serve({
-  port: app.port,
-  async fetch(request: Request): Promise<Response> {
-    return app.handleRequest(request);
+  try {
+    await app.initialize();
+
+    const server = Bun.serve({
+      port: app.getPort(),
+      async fetch(request: Request): Promise<Response> {
+        return app.handleRequest(request);
+      }
+    });
+
+    const logger = LoggerFactory.create('Server');
+    logger.info(`🌟 サーバーがポート ${server.port} で起動しました`);
+  } catch (error) {
+    const logger = LoggerFactory.create('Startup');
+    logger.error('💥 アプリケーション起動失敗:', error);
+    process.exit(1);
   }
-});
+}
 
-logger.info(`🌟 サーバーがポート ${server.port} で起動しました`);
+startApplication();

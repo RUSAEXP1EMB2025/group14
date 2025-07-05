@@ -1,4 +1,6 @@
-import { logger } from './logger.ts';
+import { LoggerFactory } from '../infrastructure/logger/LoggerFactory.ts';
+
+const logger = LoggerFactory.create('Ngrok');
 
 interface NgrokTunnel {
   proto: string;
