@@ -83,11 +83,7 @@ export class DeviceControlController {
         JSON.stringify({
           success: true,
           message: response.message,
-          device: {
-            id: response.deviceId,
-            previousState: response.previousState,
-            newState: response.newState
-          }
+          applianceId: response.applianceId
         }),
         {
           status: 200,
@@ -100,77 +96,18 @@ export class DeviceControlController {
     }
   }
 
-  async controlAircon(request: Request): Promise<Response> {
-    try {
-      const body = await this.parseJsonBody<DeviceControlApiRequest>(request);
-      if (!body.success) {
-        return new Response(body.error, { status: 400 });
+  async controlAircon(_request: Request): Promise<Response> {
+    // エアコン制御は現在サポートされていません
+    return new Response(
+      JSON.stringify({
+        error: 'Aircon control is not currently supported',
+        message: 'この機能は現在無効になっています'
+      }),
+      {
+        status: 501,
+        headers: { 'Content-Type': 'application/json' }
       }
-
-      let deviceId = body.data.deviceId;
-      if (!deviceId) {
-        // TODO: デバイス自動取得の実装
-        deviceId = 'e4f1d17e-6c78-46ea-8061-ecff9ce7ded2';
-      }
-
-      let action: 'on' | 'off' | 'toggle' = 'toggle';
-      if (body.data.action) {
-        action = body.data.action;
-      } else if (body.data.isOn !== undefined) {
-        action = body.data.isOn ? 'on' : 'off';
-      }
-
-      const settings: Record<string, unknown> = body.data.settings || {};
-      if (body.data.temperature !== undefined) {
-        settings.temperature = body.data.temperature;
-      }
-      if (body.data.mode !== undefined) {
-        settings.mode = body.data.mode;
-      }
-
-      const controlRequest: DeviceControlRequest = {
-        deviceId,
-        action,
-        settings
-      };
-
-      const result = await this.controlDeviceUseCase.controlAircon(controlRequest);
-
-      if (!result.isSuccess()) {
-        this.logger.error('Aircon control failed:', result.error);
-        return new Response(
-          JSON.stringify({
-            error: 'Aircon control failed',
-            details: result.error?.message
-          }),
-          {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        );
-      }
-
-      const response = result.data!;
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: response.message,
-          device: {
-            id: response.deviceId,
-            previousState: response.previousState,
-            newState: response.newState
-          }
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    } catch (error) {
-      this.logger.error('Aircon control endpoint error:', error);
-      return new Response('Internal Server Error', { status: 500 });
-    }
+    );
   }
 
   async executeAutomation(request: Request): Promise<Response> {

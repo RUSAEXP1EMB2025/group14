@@ -2,6 +2,7 @@ import type { ILogger } from '../../core/interfaces/ILogger.ts';
 import { DebugController } from '../controllers/DebugController.ts';
 import { DeviceControlController } from '../controllers/DeviceControlController.ts';
 import { LineWebhookController } from '../controllers/LineWebhookController.ts';
+import { CalendarWebhookController } from '../controllers/CalendarWebhookController.ts';
 
 export type RouteHandler = (request: Request) => Promise<Response>;
 
@@ -20,6 +21,7 @@ export class AppRouter {
     private readonly lineWebhookController: LineWebhookController,
     private readonly deviceControlController: DeviceControlController,
     private readonly debugController: DebugController,
+    private readonly calendarWebhookController: CalendarWebhookController,
     private readonly logger: ILogger
   ) {
     this.initializeRoutes();
@@ -46,6 +48,37 @@ export class AppRouter {
       method: 'GET',
       path: '/webhook/info',
       handler: () => this.lineWebhookController.handleWebhookInfo()
+    });
+
+    // Google Calendar Webhook関連
+    this.addRoute({
+      method: 'POST',
+      path: '/webhook/calendar',
+      handler: request => this.calendarWebhookController.handleWebhook(request)
+    });
+
+    this.addRoute({
+      method: 'GET',
+      path: '/webhook/calendar',
+      handler: request => this.calendarWebhookController.verifyWebhook(request)
+    });
+
+    this.addRoute({
+      method: 'GET',
+      path: '/webhook/calendar/status',
+      handler: () => this.calendarWebhookController.healthCheck()
+    });
+
+    this.addRoute({
+      method: 'POST',
+      path: '/webhook/calendar/test',
+      handler: () => this.calendarWebhookController.testCalendarWebhook()
+    });
+
+    this.addRoute({
+      method: 'POST',
+      path: '/api/v1/sleep/schedule/update',
+      handler: () => this.calendarWebhookController.manualSleepScheduleUpdate()
     });
 
     // ヘルスチェック

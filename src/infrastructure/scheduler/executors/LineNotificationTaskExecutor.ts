@@ -1,6 +1,8 @@
 import { Result } from '../../../core/base/Result.ts';
 import type { ILogger } from '../../../core/interfaces/ILogger.ts';
 import type { TaskExecutor, ScheduleExecutionContext } from '../ScheduleExecutionEngine.ts';
+import { LineMessageService } from '../../../application/services/LineMessageService.ts';
+import type { QuickReplyItem as ServiceQuickReplyItem } from '../../../application/services/LineMessageService.ts';
 
 export interface LineMessage {
   readonly text: string;
@@ -20,14 +22,29 @@ export interface ILineApiClient {
   pushMessage(userId: string, message: LineMessage): Promise<void>;
 }
 
+/**
+ * スケジュール経由でのLINEメッセージ送信を担当
+ * 内部的にLineMessageServiceを使用して送信機能の重複を避ける
+ */
 export class LineNotificationTaskExecutor implements TaskExecutor {
-  private lineApiClient?: ILineApiClient;
+  private lineMessageService: LineMessageService;
 
   constructor(
     private readonly logger: ILogger,
-    lineApiClient?: ILineApiClient // 実際のLINE APIクライアント（後で実装）
+    lineApiClient?: ILineApiClient
   ) {
-    this.lineApiClient = lineApiClient;
+    // LineNotificationTaskExecutorの型をLineMessageServiceの型に変換
+    const adaptedClient = lineApiClient
+      ? {
+          pushMessage: lineApiClient.pushMessage.bind(lineApiClient),
+          replyMessage: async () => {
+            // スケジュール経由ではリプライは使用しない
+            throw new Error('Reply message not supported in scheduled notifications');
+          }
+        }
+      : undefined;
+
+    this.lineMessageService = new LineMessageService(adaptedClient);
   }
 
   canHandle(taskType: string): boolean {
@@ -47,26 +64,38 @@ export class LineNotificationTaskExecutor implements TaskExecutor {
 
       // パラメータからメッセージとQuickReplyを取得
       const message = action.parameters.message as string;
-      const quickReply = action.parameters.quickReply as QuickReplyItem[] | undefined;
+      const quickReply = action.parameters.quickReply as { items: QuickReplyItem[] } | undefined;
 
       if (!message) {
         return Result.failure(new Error('No message found in task parameters'));
       }
 
-      // LINE通知を送信
-      const sendResult = await this.sendLineNotification({
+      // QuickReplyの変換
+      const serviceQuickReply: ServiceQuickReplyItem[] | undefined = quickReply?.items?.map(
+        item => ({
+          type: 'action' as const,
+          action: {
+            type: 'postback' as const,
+            label: item.action.label,
+            data: item.action.data
+          }
+        })
+      );
+
+      // LineMessageService経由で送信
+      const sendResult = await this.lineMessageService.sendMessage({
         text: message,
-        quickReply
+        quickReply: serviceQuickReply
       });
 
       if (!sendResult.isSuccess()) {
-        return Result.failure(sendResult.error!);
+        return Result.failure(sendResult.getError()!);
       }
 
       this.logger.info(`LINE notification sent successfully: ${schedule.name}`, {
         scheduleId: schedule.id.value,
         messageLength: message.length,
-        hasQuickReply: !!quickReply
+        hasQuickReply: !!serviceQuickReply
       });
 
       return Result.success(undefined);
@@ -76,84 +105,22 @@ export class LineNotificationTaskExecutor implements TaskExecutor {
     }
   }
 
-  private async sendLineNotification(lineMessage: LineMessage): Promise<Result<void, Error>> {
-    try {
-      // 実際のLINE API Client使用またはモック実装
-      if (this.lineApiClient) {
-        // 本番環境: 実際のLINE API経由で送信
-        // ユーザーIDが設定されている場合は実際に送信
-        const userId = process.env.LINE_TEST_USER_ID;
-        if (userId) {
-          this.logger.info('🚀 Sending REAL LINE notification via API!', {
-            messagePreview: `${lineMessage.text.substring(0, 50)}...`,
-            hasQuickReply: !!lineMessage.quickReply,
-            userId: `${userId.substring(0, 8)}***`
-          });
-
-          await this.lineApiClient.pushMessage(userId, lineMessage);
-
-          this.logger.info('✅ REAL LINE notification sent successfully!');
-        } else {
-          this.logger.warn('No LINE_TEST_USER_ID found, falling back to mock');
-          await this.mockLineNotification(lineMessage);
-        }
-      } else {
-        // 開発環境: モック実装でコンソール出力
-        await this.mockLineNotification(lineMessage);
-      }
-
-      return Result.success(undefined);
-    } catch (error) {
-      this.logger.error('Failed to send LINE notification:', error);
-      return Result.failure(
-        error instanceof Error ? error : new Error('Failed to send LINE notification')
-      );
-    }
-  }
-
-  private async mockLineNotification(lineMessage: LineMessage): Promise<void> {
-    this.logger.info('📱 MOCK LINE NOTIFICATION SENT 📱');
-
-    console.log(`${'='.repeat(60)}`);
-    console.log('📱 LINE Bot 通知 (Mock)');
-    console.log('='.repeat(60));
-    console.log(lineMessage.text);
-
-    if (lineMessage.quickReply && lineMessage.quickReply.length > 0) {
-      console.log('\n📋 Quick Reply オプション:');
-      lineMessage.quickReply.forEach((item, index) => {
-        console.log(`  ${index + 1}. [${item.action.label}] - ${item.action.data}`);
-      });
-    }
-
-    console.log('='.repeat(60));
-    console.log('⏰ 送信時刻:', new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }));
-    console.log(`${'='.repeat(60)}\n`);
-
-    // 実際の送信を模擬するため少し待機
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-
   setLineApiClient(client: ILineApiClient): void {
-    this.lineApiClient = client;
-    this.logger.info('LINE API client configured for real notifications');
+    // LineMessageServiceのAPIクライアントを設定
+    const adaptedClient = {
+      pushMessage: client.pushMessage.bind(client),
+      replyMessage: async () => {
+        // スケジュール経由ではリプライは使用しない
+        throw new Error('Reply message not supported in scheduled notifications');
+      }
+    };
+
+    this.lineMessageService.setLineApiClient(adaptedClient);
+    this.logger.info('LINE API client configured for scheduled notifications');
   }
 
   async sendTestMessage(message: string): Promise<Result<void, Error>> {
-    this.logger.info('Sending test LINE message');
-
-    return await this.sendLineNotification({
-      text: `🧪 テストメッセージ\n\n${message}\n\n送信時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
-      quickReply: [
-        {
-          type: 'action',
-          action: {
-            type: 'postback',
-            label: '✅ 受信確認',
-            data: 'action=test_confirm'
-          }
-        }
-      ]
-    });
+    this.logger.info('Sending test LINE message via scheduled executor');
+    return await this.lineMessageService.sendTestMessage(message);
   }
 }

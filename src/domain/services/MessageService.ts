@@ -207,6 +207,14 @@ export class MessageService {
     let command = '';
     const parameters: Record<string, string> = {};
 
+    // 日の入り時刻の検出
+    const sunsetResult = this.detectSunsetTimeQuery(text);
+    if (sunsetResult.detected) {
+      command = 'sunset_time';
+      confidence = sunsetResult.confidence;
+      parameters.requestType = 'sunset_time';
+    }
+
     // デバイス制御コマンドの検出
     if (deviceKeywords.some(keyword => text.includes(keyword))) {
       confidence += 0.4;
@@ -236,6 +244,33 @@ export class MessageService {
       isConfirmation: false,
       confidence
     };
+  }
+
+  private detectSunsetTimeQuery(text: string): { detected: boolean; confidence: number } {
+    const sunsetKeywords = [
+      '日の入り',
+      'ひのいり',
+      '夕日',
+      'サンセット',
+      'sunset',
+      '夕方',
+      '日没',
+      'にちぼつ'
+    ];
+
+    const timeKeywords = ['時間', '時刻', 'じかん', 'じこく', '何時', 'なんじ', 'いつ', 'time'];
+
+    const questionKeywords = ['？', '?', 'いつ', '教えて', 'おしえて', '知りたい', 'しりたい'];
+
+    const hasSunsetKeyword = sunsetKeywords.some(keyword => text.includes(keyword));
+    const hasTimeKeyword = timeKeywords.some(keyword => text.includes(keyword));
+    const hasQuestionKeyword = questionKeywords.some(keyword => text.includes(keyword));
+
+    if (hasSunsetKeyword && (hasTimeKeyword || hasQuestionKeyword)) {
+      return { detected: true, confidence: 0.9 };
+    }
+
+    return { detected: false, confidence: 0 };
   }
 
   /**

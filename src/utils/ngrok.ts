@@ -1,4 +1,5 @@
 import { LoggerFactory } from '../infrastructure/logger/LoggerFactory.ts';
+import { CalendarSyncService } from '../application/services/CalendarSyncService.ts';
 
 const logger = LoggerFactory.create('Ngrok');
 
@@ -61,6 +62,40 @@ export async function getNgrokUrl(): Promise<string | null> {
   }
 }
 
+/**
+ * GoogleカレンダーのWebhookを自動更新
+ */
+export async function updateCalendarWebhook(ngrokUrl: string): Promise<boolean> {
+  try {
+    // 環境変数を一時的に設定
+    const originalWebhookUrl = process.env.WEBHOOK_URL;
+    process.env.WEBHOOK_URL = `${ngrokUrl}/webhook/calendar`;
+
+    const calendarService = new CalendarSyncService();
+    const result = await calendarService.setupCalendarWebhook();
+
+    // 元の環境変数を復元
+    if (originalWebhookUrl) {
+      process.env.WEBHOOK_URL = originalWebhookUrl;
+    } else {
+      process.env.WEBHOOK_URL = '';
+    }
+
+    if (result.isSuccess()) {
+      const channelId = result.getValue();
+      logger.info(`✅ Calendar Webhook auto-updated: ${ngrokUrl}/webhook/calendar`);
+      logger.debug(`📋 Calendar Channel ID: ${channelId}`);
+      return true;
+    }
+    
+    logger.error('❌ Failed to update calendar webhook:', result.getError());
+    return false;
+  } catch (error) {
+    logger.error('❌ Failed to update calendar webhook:', error);
+    return false;
+  }
+}
+
 export async function autoUpdateWebhookForDev(): Promise<void> {
   if (process.env.NODE_ENV !== 'development') {
     return;
@@ -71,7 +106,13 @@ export async function autoUpdateWebhookForDev(): Promise<void> {
   const ngrokUrl = await getNgrokUrl();
   if (ngrokUrl) {
     logger.info(`🌐 Detected ngrok URL: ${ngrokUrl}`);
+    
+    // LINEのWebhook更新
     await updateWebhookUrl(ngrokUrl);
+    
+    // GoogleカレンダーのWebhook更新
+    logger.info('📅 Setting up Google Calendar webhook...');
+    await updateCalendarWebhook(ngrokUrl);
   } else {
     logger.info('i No ngrok URL detected, webhook not updated');
   }

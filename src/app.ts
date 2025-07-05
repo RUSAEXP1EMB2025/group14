@@ -2,14 +2,16 @@ import 'dotenv/config';
 import {
   DeviceAutomationService,
   LineWebhookService,
-  DailyScheduleSetupService
+  DailyScheduleSetupService,
+  CalendarWebhookService
 } from './application/services/index.ts';
 import {
   ControlDeviceUseCase,
   ManageScheduleUseCase,
   ProcessMessageUseCase
 } from './application/usecases/index.ts';
-import { DeviceControlService, MessageService, ScheduleService } from './domain/services/index.ts';
+import { DeviceControlService as ApplicationDeviceControlService } from './application/services/DeviceControlService.ts';
+import { MessageService, ScheduleService } from './domain/services/index.ts';
 import {
   MockMessageRepository,
   MockScheduleRepository,
@@ -22,9 +24,11 @@ import { LoggerFactory } from './infrastructure/logger/LoggerFactory.ts';
 import { SimpleNextExecutionCalculator } from './infrastructure/scheduler/SimpleNextExecutionCalculator.ts';
 import { ScheduleExecutionEngine } from './infrastructure/scheduler/ScheduleExecutionEngine.ts';
 import { LineNotificationTaskExecutor } from './infrastructure/scheduler/executors/LineNotificationTaskExecutor.ts';
+import { LineMessageService } from './application/services/LineMessageService.ts';
 import { DebugController } from './presentation/controllers/DebugController.ts';
 import { DeviceControlController } from './presentation/controllers/DeviceControlController.ts';
 import { LineWebhookController } from './presentation/controllers/LineWebhookController.ts';
+import { CalendarWebhookController } from './presentation/controllers/CalendarWebhookController.ts';
 import { AppRouter } from './presentation/routers/AppRouter.ts';
 import { autoUpdateWebhookForDev } from './utils/ngrok.ts';
 class Application {
@@ -82,7 +86,8 @@ class Application {
       // Domain Services
       const messageService = new MessageService(messageRepository, logger);
 
-      const deviceControlService = new DeviceControlService(deviceRepository, logger);
+      // Application Services
+      const deviceControlService = new ApplicationDeviceControlService();
 
       const scheduleService = new ScheduleService(
         scheduleRepository,
@@ -91,24 +96,9 @@ class Application {
       );
 
       // Use Cases
-      const processMessageUseCase = new ProcessMessageUseCase(
-        messageService,
-        deviceControlService,
-        logger
-      );
-
       const controlDeviceUseCase = new ControlDeviceUseCase(deviceControlService, logger);
 
       const manageScheduleUseCase = new ManageScheduleUseCase(scheduleService, logger);
-
-      // Application Services
-      const webhookService = new LineWebhookService(processMessageUseCase, lineApiClient, logger);
-
-      const automationService = new DeviceAutomationService(
-        controlDeviceUseCase,
-        manageScheduleUseCase, // 実際のManageScheduleUseCaseを使用
-        logger
-      );
 
       // スケジュール実行エンジンとタスクエグゼキューター
       this.scheduleExecutionEngine = new ScheduleExecutionEngine(scheduleService, logger);
@@ -124,6 +114,51 @@ class Application {
         lineNotificationExecutor
       );
 
+      // 統一的なLINEメッセージサービス
+      const lineMessageService = new LineMessageService(lineApiClientAdapter);
+
+      // デイリースケジュールセットアップサービス
+      this.dailyScheduleSetupService = new DailyScheduleSetupService(
+        manageScheduleUseCase,
+        lineMessageService
+      );
+
+      const processMessageUseCase = new ProcessMessageUseCase(
+        messageService,
+        deviceControlService,
+        logger,
+        this.dailyScheduleSetupService
+      );
+
+      // Application Services
+      const webhookService = new LineWebhookService(
+        processMessageUseCase,
+        lineMessageService,
+        logger
+      );
+
+      const automationService = new DeviceAutomationService(
+        controlDeviceUseCase,
+        manageScheduleUseCase,
+        logger
+      );
+
+      // Calendar Webhook Service - CalendarSyncServiceとSleepScheduleServiceが必要
+      const { CalendarSyncService } = await import('./application/services/CalendarSyncService.ts');
+      const { SleepScheduleService } = await import('./application/services/SleepScheduleService.ts');
+      
+      const calendarSyncService = new CalendarSyncService();
+      const sleepScheduleService = new SleepScheduleService(
+        calendarSyncService,
+        lineMessageService,
+        deviceControlService
+      );
+      
+      const calendarWebhookService = new CalendarWebhookService(
+        calendarSyncService,
+        sleepScheduleService
+      );
+
       // Presentation層（Controllers）
       const webhookController = new LineWebhookController(
         webhookService,
@@ -137,6 +172,10 @@ class Application {
         logger
       );
 
+      const calendarWebhookController = new CalendarWebhookController(
+        calendarWebhookService
+      );
+
       // Debug Controller
       const debugController = new DebugController(
         deviceRepository,
@@ -146,13 +185,7 @@ class Application {
       );
 
       // Router設定
-      this.router = new AppRouter(webhookController, deviceController, debugController, logger);
-
-      // デイリースケジュールセットアップサービス（LineNotificationTaskExecutorを渡す）
-      this.dailyScheduleSetupService = new DailyScheduleSetupService(
-        manageScheduleUseCase,
-        lineNotificationExecutor
-      );
+      this.router = new AppRouter(webhookController, deviceController, debugController, calendarWebhookController, logger);
 
       this.logger.debug('✅ 依存関係構築完了');
     } catch (error) {

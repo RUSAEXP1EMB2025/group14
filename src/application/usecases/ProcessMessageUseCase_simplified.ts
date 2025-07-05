@@ -3,10 +3,7 @@ import type { ILogger } from '../../core/interfaces/ILogger.ts';
 import { Message, MessageService } from '../../domain/index.ts';
 import type { MessageId, MessageParsingResult, UserId } from '../../domain/index.ts';
 import type { DailyScheduleSetupService } from '../services/DailyScheduleSetupService.ts';
-import {
-  DeviceControlService,
-  type DeviceControlResult
-} from '../services/DeviceControlService.ts';
+import { DeviceControlService } from '../services/DeviceControlService.ts';
 
 export interface MessageProcessingResult {
   readonly success: boolean;
@@ -52,9 +49,6 @@ export class ProcessMessageUseCase {
         case 'postback':
           return await this.handlePostback(parsedMessage, message.userId);
 
-        case 'device_control':
-          return await this.handleDeviceControl(parsedMessage);
-
         case 'sunset_time':
           return await this.handleSunsetTimeRequest(parsedMessage);
 
@@ -93,9 +87,6 @@ export class ProcessMessageUseCase {
 
       case 'sleep':
         return await this.handleSleepAction(reason);
-
-      case 'wakeup':
-        return await this.handleWakeupAction(parameters.response as string);
 
       default:
         return Result.success({
@@ -276,213 +267,6 @@ export class ProcessMessageUseCase {
         responseMessage:
           '😴 おやすみなさい！（電気の制御でエラーが発生しましたが、ゆっくりお休みください）',
         actionTaken: 'sleep_action_error'
-      });
-    }
-  }
-
-  /**
-   * デバイス制御コマンドを処理
-   */
-  private async handleDeviceControl(
-    parsedMessage: MessageParsingResult
-  ): Promise<Result<MessageProcessingResult>> {
-    try {
-      const { parameters } = parsedMessage;
-      const deviceType = parameters.deviceType as string;
-      const action = parameters.action as string;
-
-      this.logger.info('Processing device control command', { deviceType, action, parameters });
-
-      switch (deviceType) {
-        case 'light':
-          return await this.handleLightControl(action, parameters);
-
-        case 'aircon':
-          return await this.handleAirconControl(action, parameters);
-
-        default:
-          return Result.success({
-            success: false,
-            responseMessage: '申し訳ございませんが、そのデバイスの制御には対応していません。',
-            actionTaken: 'unsupported_device'
-          });
-      }
-    } catch (error) {
-      this.logger.error('Error handling device control:', error);
-      return Result.success({
-        success: false,
-        responseMessage: 'デバイス制御でエラーが発生しました。もう一度お試しください。',
-        actionTaken: 'device_control_error'
-      });
-    }
-  }
-
-  /**
-   * ライト制御を処理
-   */
-  private async handleLightControl(
-    action: string,
-    parameters: Record<string, string>
-  ): Promise<Result<MessageProcessingResult>> {
-    try {
-      let controlResult: DeviceControlResult;
-
-      switch (action) {
-        case 'on':
-          controlResult = await this.deviceControlService.turnOnLights();
-          break;
-
-        case 'off':
-          controlResult = await this.deviceControlService.turnOffLights();
-          break;
-
-        default:
-          return Result.success({
-            success: false,
-            responseMessage:
-              'ライトの操作が認識できませんでした。「ライトをつけて」または「ライトを消して」と話しかけてください。',
-            actionTaken: 'invalid_light_action'
-          });
-      }
-
-      if (!controlResult.success) {
-        this.logger.error('Light control failed:', { error: controlResult.message });
-        return Result.success({
-          success: false,
-          responseMessage: 'ライトの制御に失敗しました。もう一度お試しください。',
-          actionTaken: 'light_control_failed'
-        });
-      }
-
-      const actionText = action === 'on' ? '点灯' : '消灯';
-      const brightness = parameters.brightness;
-      const brightnessText = brightness ? ` (明度: ${brightness}%)` : '';
-
-      return Result.success({
-        success: true,
-        responseMessage: `💡 ライトを${actionText}しました！${brightnessText}`,
-        actionTaken: `light_${action}`
-      });
-    } catch (error) {
-      this.logger.error('Error controlling light:', error);
-      return Result.success({
-        success: false,
-        responseMessage: 'ライト制御でエラーが発生しました。',
-        actionTaken: 'light_control_error'
-      });
-    }
-  }
-
-  /**
-   * エアコン制御を処理
-   */
-  private async handleAirconControl(
-    action: string,
-    parameters: Record<string, string>
-  ): Promise<Result<MessageProcessingResult>> {
-    try {
-      let controlResult: DeviceControlResult;
-
-      switch (action) {
-        case 'on':
-          controlResult = await this.deviceControlService.turnOnAircon();
-          break;
-
-        case 'off':
-          controlResult = await this.deviceControlService.turnOffAircon();
-          break;
-
-        default:
-          return Result.success({
-            success: false,
-            responseMessage:
-              'エアコンの操作が認識できませんでした。「エアコンをつけて」または「エアコンを消して」と話しかけてください。',
-            actionTaken: 'invalid_aircon_action'
-          });
-      }
-
-      if (!controlResult.success) {
-        this.logger.error('Aircon control failed:', { error: controlResult.message });
-        return Result.success({
-          success: false,
-          responseMessage: 'エアコンの制御に失敗しました。もう一度お試しください。',
-          actionTaken: 'aircon_control_failed'
-        });
-      }
-
-      const actionText = action === 'on' ? '運転開始' : '停止';
-      const temperature = parameters.temperature;
-      const tempText = temperature ? ` (設定温度: ${temperature}°C)` : '';
-
-      return Result.success({
-        success: true,
-        responseMessage: `❄️ エアコンを${actionText}しました！${tempText}`,
-        actionTaken: `aircon_${action}`
-      });
-    } catch (error) {
-      this.logger.error('Error controlling aircon:', error);
-      return Result.success({
-        success: false,
-        responseMessage: 'エアコン制御でエラーが発生しました。',
-        actionTaken: 'aircon_control_error'
-      });
-    }
-  }
-
-  /**
-   * 起床時の応答を処理
-   */
-  private async handleWakeupAction(response: string): Promise<Result<MessageProcessingResult>> {
-    try {
-      this.logger.info('Processing wakeup action', { response });
-
-      switch (response) {
-        case 'awake': {
-          // 「起きました」が選択された場合、電気を消す
-          const controlResult = await this.deviceControlService.turnOffLights();
-
-          if (!controlResult.success) {
-            this.logger.error('Failed to turn off lights after wakeup', {
-              error: controlResult.message
-            });
-
-            return Result.success({
-              success: true,
-              responseMessage: '☀️ おはようございます！\n（電気の制御に失敗しましたが、手動で調整してください）\n\n素敵な一日をお過ごしください！',
-              actionTaken: 'wakeup_acknowledged_light_error'
-            });
-          }
-
-          this.logger.info('Successfully turned off lights after wakeup');
-
-          return Result.success({
-            success: true,
-            responseMessage: '☀️ おはようございます！\n電気を消しました💡\n\n今日も素敵な一日をお過ごしください！',
-            actionTaken: 'wakeup_acknowledged'
-          });
-        }
-
-        case 'snooze':
-          // 「もう少し寝る」が選択された場合
-          return Result.success({
-            success: true,
-            responseMessage: '😴 承知いたしました。\nもう少しゆっくりお休みください。\n\n電気はそのままにしておきますね💡',
-            actionTaken: 'wakeup_snoozed'
-          });
-
-        default:
-          return Result.success({
-            success: false,
-            responseMessage: '起床の応答が認識できませんでした。',
-            actionTaken: 'invalid_wakeup_response'
-          });
-      }
-    } catch (error) {
-      this.logger.error('Error in handleWakeupAction:', error);
-      return Result.success({
-        success: false,
-        responseMessage: '☀️ おはようございます！\n（応答処理でエラーが発生しましたが、素敵な一日をお過ごしください）',
-        actionTaken: 'wakeup_action_error'
       });
     }
   }

@@ -100,7 +100,13 @@ tasks:
     desc: 任意のスクリプト実行（例 task script:run -- scripts/your-script.ts）
     deps: [install]
     cmds:
-      - docker run --rm --env-file .env -v $(pwd):/app {{.PROJECT_NAME}} bun run {{.CLI_ARGS}}
+      - docker run --rm --env-file .env -e TZ=Asia/Tokyo -v $(pwd):/app {{.PROJECT_NAME}} bun run {{.CLI_ARGS}}
+
+  test:sleep:
+    desc: 睡眠スケジュール機能のテスト
+    deps: [install]
+    cmds:
+      - docker run --rm --env-file .env -e TZ=Asia/Tokyo -v $(pwd):/app {{.PROJECT_NAME}} bun run scripts/test-sleep-schedule.ts
 
   # 環境構築
   env:copy:

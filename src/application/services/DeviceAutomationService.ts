@@ -5,9 +5,9 @@ import { ControlDeviceUseCase, ManageScheduleUseCase } from '../usecases/index.t
 import type {
   CreateScheduleRequest,
   DeviceControlRequest,
-  DeviceControlResult,
   ScheduleExecutionResult
 } from '../usecases/index.ts';
+import type { DeviceControlResult } from './DeviceControlService.ts';
 
 export interface AutomationRule {
   readonly id: string;
@@ -141,10 +141,9 @@ export class DeviceAutomationService {
 
           if (this.isLightDevice(action.deviceId)) {
             result = await this.controlDeviceUseCase.controlLight(action);
-          } else if (this.isAirconDevice(action.deviceId)) {
-            result = await this.controlDeviceUseCase.controlAircon(action);
           } else {
-            errors.push(`Unknown device type: ${action.deviceId}`);
+            // エアコン制御は現在サポートされていません
+            errors.push(`Device type not supported: ${action.deviceId}`);
             continue;
           }
 
@@ -226,23 +225,24 @@ export class DeviceAutomationService {
         }
       }
 
-      const airconDevices = ['aircon_001'];
-      for (const deviceId of airconDevices) {
-        try {
-          const result = await this.controlDeviceUseCase.controlAircon({
-            deviceId,
-            action: 'off'
-          });
+      // エアコン制御は現在サポートされていません
+      // const airconDevices = ['aircon_001'];
+      // for (const deviceId of airconDevices) {
+      //   try {
+      //     const result = await this.controlDeviceUseCase.controlAircon({
+      //       deviceId,
+      //       action: 'off'
+      //     });
 
-          if (result.isSuccess()) {
-            results.push(`Aircon ${deviceId} turned off`);
-          } else {
-            errors.push(`Failed to turn off aircon ${deviceId}: ${result.error}`);
-          }
-        } catch (error) {
-          errors.push(`Error turning off aircon ${deviceId}: ${error}`);
-        }
-      }
+      //     if (result.isSuccess()) {
+      //       results.push(`Aircon ${deviceId} turned off`);
+      //     } else {
+      //       errors.push(`Failed to turn off aircon ${deviceId}: ${result.error}`);
+      //     }
+      //   } catch (error) {
+      //     errors.push(`Error turning off aircon ${deviceId}: ${error}`);
+      //   }
+      // }
 
       if (errors.length > 0) {
         this.logger.error('Emergency stop completed with errors:', errors);

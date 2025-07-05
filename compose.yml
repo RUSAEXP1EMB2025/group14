@@ -8,6 +8,8 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+    environment:
+      - TZ=Asia/Tokyo
     networks:
       - app-network
     env_file:

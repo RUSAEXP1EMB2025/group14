@@ -181,6 +181,12 @@ export class LineWebhookController {
    */
   private validateWebhook(body: string, signature: string): WebhookValidationResult {
     try {
+      // 開発環境では署名検証をスキップ
+      if (process.env.NODE_ENV === 'development' && signature === 'dummy') {
+        this.logger.debug('Development mode: Skipping signature validation');
+        return { isValid: true };
+      }
+
       const isValid = this.lineWebhookService.verifySignature(body, signature, this.channelSecret);
 
       if (!isValid) {

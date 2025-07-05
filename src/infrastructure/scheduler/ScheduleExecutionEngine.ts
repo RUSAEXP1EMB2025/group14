@@ -96,12 +96,12 @@ export class ScheduleExecutionEngine {
 
       const schedules = schedulesResult.data;
       const currentTime = new Date();
-      
+
       // 即座に実行すべきスケジュールと将来実行すべきスケジュールを分離
       const executableSchedules = schedules.filter(schedule =>
         this.shouldExecuteSchedule(schedule, currentTime)
       );
-      
+
       const futureSchedules = schedules.filter(schedule =>
         this.shouldScheduleForFuture(schedule, currentTime)
       );
@@ -342,7 +342,7 @@ export class ScheduleExecutionEngine {
     if (schedule.config.type === 'once' && schedule.config.executionTime) {
       const executionTime = schedule.config.executionTime;
       const timeDiff = executionTime.getTime() - currentTime.getTime();
-      
+
       // 将来の時刻で、かつ未実行の場合
       return timeDiff > 0 && schedule.executionCount === 0;
     }
@@ -374,7 +374,7 @@ export class ScheduleExecutionEngine {
     }
 
     const timeDiff = executionTime.getTime() - currentTime.getTime();
-    
+
     // JavaScriptのsetTimeoutの制限（約24.8日）を超える場合は定期チェックに任せる
     const MAX_TIMEOUT_MS = 2147483647; // 約24.8日
     if (timeDiff > MAX_TIMEOUT_MS) {
@@ -391,10 +391,10 @@ export class ScheduleExecutionEngine {
     // 新しいタイマーを設定
     const timeoutId = setTimeout(async () => {
       this.logger.info(`⏰ Timer triggered for schedule: ${schedule.name}`);
-      
+
       // タイマーマップから削除
       this.scheduledTimeouts.delete(schedule.id.value);
-      
+
       // スケジュールを実行
       await this.executeSchedule(schedule);
     }, timeDiff);
@@ -417,7 +417,7 @@ export class ScheduleExecutionEngine {
     }
 
     const currentTime = new Date();
-    
+
     // 即座に実行すべきかチェック
     if (this.shouldExecuteSchedule(schedule, currentTime)) {
       this.logger.info(`Executing newly added schedule immediately: ${schedule.name}`);

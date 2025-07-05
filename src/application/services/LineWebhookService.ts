@@ -2,7 +2,7 @@ import { Result } from '../../core/base/Result.ts';
 import type { ILogger } from '../../core/interfaces/ILogger.ts';
 import { Message } from '../../domain/index.ts';
 import type { MessageContent, MessageId, UserId } from '../../domain/index.ts';
-import { LineApiClient } from '../../external/clients/LineApiClient.ts';
+import { LineMessageService } from './LineMessageService.ts';
 import { ProcessMessageUseCase } from '../usecases/index.ts';
 import type { MessageProcessingResult } from '../usecases/index.ts';
 
@@ -34,7 +34,7 @@ export interface LineWebhookResponse {
 export class LineWebhookService {
   constructor(
     private readonly processMessageUseCase: ProcessMessageUseCase,
-    private readonly lineApiClient: LineApiClient,
+    private readonly lineMessageService: LineMessageService,
     private readonly logger: ILogger
   ) {}
 
@@ -231,14 +231,17 @@ export class LineWebhookService {
 
       // replyTokenがある場合は返信、ない場合はプッシュメッセージ
       if (replyToken) {
-        const replyResult = await this.lineApiClient.replyMessage(replyToken, welcomeMessage);
+        const replyResult = await this.lineMessageService.sendReplyMessage(
+          replyToken,
+          welcomeMessage
+        );
         if (replyResult.isFailure()) {
-          this.logger.error(`Failed to send welcome reply: ${replyResult.error}`);
+          this.logger.error(`Failed to send welcome reply: ${replyResult.getError()?.message}`);
         }
       } else {
-        const pushResult = await this.lineApiClient.pushMessage(userId, welcomeMessage);
+        const pushResult = await this.lineMessageService.sendPushMessage(userId, welcomeMessage);
         if (pushResult.isFailure()) {
-          this.logger.error(`Failed to send welcome push: ${pushResult.error}`);
+          this.logger.error(`Failed to send welcome push: ${pushResult.getError()?.message}`);
         }
       }
 
@@ -298,7 +301,7 @@ export class LineWebhookService {
     }
 
     try {
-      const replyResult = await this.lineApiClient.replyMessage(
+      const replyResult = await this.lineMessageService.sendReplyMessage(
         event.replyToken,
         processingResult.responseMessage
       );
@@ -306,7 +309,7 @@ export class LineWebhookService {
       if (replyResult.isSuccess()) {
         this.logger.info(`Reply sent successfully for event: ${event.type}`);
       } else {
-        this.logger.error(`Failed to send reply: ${replyResult.error}`);
+        this.logger.error(`Failed to send reply: ${replyResult.getError()?.message}`);
       }
     } catch (error) {
       this.logger.error('Error sending reply:', error);
