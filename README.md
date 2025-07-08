@@ -166,7 +166,7 @@ task clean
 src/
 ├── domain/          # ドメイン層 (エンティティ、リポジトリ)
 ├── application/     # アプリケーション層 (ユースケース、サービス)
-├── infrastructure/  # インフラ層 (外部API、データベース)
+├── infrastructure/  # インフラ層 (外部API)
 ├── presentation/    # プレゼンテーション層 (コントローラー、ルーター)
 └── external/        # 外部サービス連携
 ```
